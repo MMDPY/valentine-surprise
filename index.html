@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>For You</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+    :root {
+      --bg: #000; --surface: rgba(255,255,255,0.04); --surface-hover: rgba(255,255,255,0.07);
+      --border: rgba(255,255,255,0.06); --text: #f5f5f7; --text2: rgba(245,245,247,0.5);
+      --text3: rgba(245,245,247,0.3); --accent: #ff2d55; --accent-hover: #ff3d6a;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-font-smoothing:antialiased; }
+    html,body { height:100%; overflow:hidden; }
+    body {
+      font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+      background:var(--bg); color:var(--text);
+      display:flex; align-items:center; justify-content:center;
+    }
+
+    canvas#particles { position:fixed; inset:0; z-index:0; pointer-events:none; }
+    canvas#confetti  { position:fixed; inset:0; z-index:200; pointer-events:none; }
+
+    .orb { position:fixed; border-radius:50%; filter:blur(120px); opacity:0.3; pointer-events:none; z-index:0; }
+    .orb-1 { width:600px;height:600px; background:radial-gradient(circle,rgba(255,45,85,0.3),transparent 70%); top:-15%;left:-10%; animation:oF1 20s ease-in-out infinite; }
+    .orb-2 { width:500px;height:500px; background:radial-gradient(circle,rgba(120,40,200,0.2),transparent 70%); bottom:-20%;right:-10%; animation:oF2 25s ease-in-out infinite; }
+    .orb-3 { width:400px;height:400px; background:radial-gradient(circle,rgba(255,100,130,0.15),transparent 70%); top:50%;left:60%; animation:oF3 18s ease-in-out infinite; }
+    @keyframes oF1{0%,100%{transform:translate(0,0)}33%{transform:translate(80px,40px)}66%{transform:translate(-30px,60px)}}
+    @keyframes oF2{0%,100%{transform:translate(0,0)}33%{transform:translate(-60px,-30px)}66%{transform:translate(40px,-50px)}}
+    @keyframes oF3{0%,100%{transform:translate(0,0)}50%{transform:translate(-100px,-60px)}}
+
+    .noise{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0.025;
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-repeat:repeat;background-size:256px;}
+    .vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
+      background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,0.5) 100%);}
+
+    /* ── Screens ── */
+    .screen {
+      position:absolute;inset:0;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;z-index:10;padding:2rem;
+      transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1);
+    }
+    .screen.hidden{opacity:0;pointer-events:none;transform:scale(.97) translateY(16px);}
+    .screen.visible{opacity:1;pointer-events:all;transform:scale(1) translateY(0);}
+
+    .heart-icon{width:56px;height:56px;margin-bottom:1.5rem;animation:pulse 2.4s cubic-bezier(.4,0,.6,1) infinite;}
+    .heart-icon svg{width:100%;height:100%;fill:var(--accent);filter:drop-shadow(0 0 20px rgba(255,45,85,0.4));}
+    @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+
+    .hero-title{
+      font-family:'Playfair Display',Georgia,serif;font-weight:700;
+      font-size:clamp(2.8rem,7vw,5.5rem);line-height:1.1;text-align:center;
+      letter-spacing:-0.02em;max-width:700px;
+      background:linear-gradient(180deg,#fff,rgba(255,255,255,0.7));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    }
+    .tagline{font-size:clamp(.95rem,2vw,1.1rem);font-weight:300;color:var(--text2);margin-top:.75rem;letter-spacing:.02em;}
+
+    /* ── Buttons ── */
+    .btn{
+      font-family:'Inter',sans-serif;font-size:.95rem;font-weight:500;
+      border:none;border-radius:980px;cursor:pointer;padding:14px 36px;
+      transition:all .5s cubic-bezier(.16,1,.3,1);outline:none;
+      letter-spacing:.01em;user-select:none;-webkit-tap-highlight-color:transparent;
+    }
+    .btn-primary{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+    .btn-primary:hover{background:var(--accent-hover);transform:scale(1.04);box-shadow:0 0 40px rgba(255,45,85,.25),0 4px 20px rgba(0,0,0,.3);}
+    .btn-primary:active{transform:scale(.98);}
+    .btn-secondary{background:var(--surface);color:var(--text2);border:1px solid var(--border);backdrop-filter:blur(20px);}
+    .btn-secondary:hover{background:var(--surface-hover);}
+    .btn-secondary.runaway{position:fixed!important;z-index:50;transform-style:preserve-3d;perspective:800px;}
+    .btn-group{display:flex;gap:1rem;margin-top:2.5rem;align-items:center;}
+
+    /* ── No button: "pop in" animations at the NEW position ── */
+    @keyframes popBarrelRoll  { 0%{transform:scale(0.3) rotateZ(360deg);opacity:0} 60%{transform:scale(1.1) rotateZ(-10deg);opacity:1} 100%{transform:scale(1) rotateZ(0)} }
+    @keyframes popBackflip    { 0%{transform:scale(0.3) rotateX(-360deg);opacity:0} 60%{transform:scale(1.1) rotateX(10deg);opacity:1} 100%{transform:scale(1) rotateX(0)} }
+    @keyframes popCartwheel   { 0%{transform:scale(0.3) rotateZ(270deg) rotateY(180deg);opacity:0} 60%{transform:scale(1.1) rotateZ(-5deg) rotateY(0);opacity:1} 100%{transform:scale(1) rotateZ(0)} }
+    @keyframes popSquash      { 0%{transform:scaleY(0.1) scaleX(2);opacity:0} 30%{transform:scaleY(1.6) scaleX(0.6);opacity:1} 55%{transform:scaleY(0.8) scaleX(1.2)} 75%{transform:scaleY(1.1) scaleX(0.95)} 100%{transform:scale(1)} }
+    @keyframes popJello       { 0%{transform:scale(0.5) skewX(20deg);opacity:0} 25%{transform:scale(1.15) skewX(-15deg);opacity:1} 50%{transform:scale(0.95) skewX(10deg)} 75%{transform:scale(1.05) skewX(-5deg)} 100%{transform:scale(1) skewX(0)} }
+    @keyframes popCorkscrew   { 0%{transform:scale(0.3) rotate3d(1,1,0,360deg);opacity:0} 60%{transform:scale(1.1) rotate3d(1,1,0,-15deg);opacity:1} 100%{transform:scale(1) rotate3d(1,1,0,0deg)} }
+    @keyframes popRubberBand  { 0%{transform:scaleX(0.3) scaleY(0.3);opacity:0} 20%{transform:scaleX(1.5) scaleY(0.6);opacity:1} 40%{transform:scaleX(0.7) scaleY(1.4)} 60%{transform:scaleX(1.2) scaleY(0.85)} 80%{transform:scaleX(0.95) scaleY(1.05)} 100%{transform:scale(1)} }
+    @keyframes popFlatSpin    { 0%{transform:rotateY(720deg) scale(0.3);opacity:0} 60%{transform:rotateY(-15deg) scale(1.05);opacity:1} 100%{transform:rotateY(0) scale(1)} }
+    @keyframes popYeet        { 0%{transform:scale(0.2) rotate(30deg);opacity:0} 40%{transform:scale(1.15) rotate(-8deg);opacity:1} 65%{transform:scale(0.95) rotate(3deg)} 85%{transform:scale(1.02) rotate(-1deg)} 100%{transform:scale(1) rotate(0)} }
+    @keyframes popDrain       { 0%{transform:rotate(540deg) scale(0.2);opacity:0} 50%{transform:rotate(-20deg) scale(1.1);opacity:1} 75%{transform:rotate(5deg) scale(0.97)} 100%{transform:rotate(0) scale(1)} }
+    @keyframes popFlipStretch { 0%{transform:perspective(600px) rotateX(-180deg) scaleY(0.3);opacity:0} 50%{transform:perspective(600px) rotateX(15deg) scaleY(1.2);opacity:1} 75%{transform:perspective(600px) rotateX(-5deg) scaleY(0.95)} 100%{transform:perspective(600px) rotateX(0) scaleY(1)} }
+    @keyframes popDizzy       { 0%{transform:rotateZ(360deg) scale(0.2);opacity:0} 40%{transform:rotateZ(-20deg) scale(1.15);opacity:1} 65%{transform:rotateZ(8deg) scale(0.95)} 85%{transform:rotateZ(-3deg) scale(1.02)} 100%{transform:rotateZ(0) scale(1)} }
+
+    /* ── Success ── */
+    .success-heart{width:80px;height:80px;margin-bottom:1.5rem;animation:sPulse 1.6s cubic-bezier(.4,0,.6,1) infinite;}
+    .success-heart svg{width:100%;height:100%;fill:var(--accent);filter:drop-shadow(0 0 40px rgba(255,45,85,0.5));}
+    @keyframes sPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+    .success-title{
+      font-family:'Playfair Display',Georgia,serif;font-weight:700;
+      font-size:clamp(2.5rem,7vw,5rem);letter-spacing:-0.02em;
+      background:linear-gradient(135deg,#ff2d55,#ff6b8a,#ff2d55);background-size:200% auto;
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+      animation:shimmer 3s linear infinite;
+    }
+    @keyframes shimmer{0%{background-position:0% center}100%{background-position:200% center}}
+    .success-sub{font-size:clamp(.95rem,2.5vw,1.15rem);font-weight:300;color:var(--text2);margin-top:1rem;text-align:center;line-height:1.7;}
+
+    /* ── Game Screen ── */
+    .screen-game{overflow-y:auto;justify-content:flex-start;padding-top:4vh;}
+    .screen-game::-webkit-scrollbar{width:0;}
+    .game-header{text-align:center;margin-bottom:1.5rem;flex-shrink:0;}
+    .game-header h2{
+      font-family:'Playfair Display',Georgia,serif;font-weight:700;
+      font-size:clamp(1.5rem,3.5vw,2.2rem);letter-spacing:-0.02em;
+      background:linear-gradient(180deg,#fff,rgba(255,255,255,0.7));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    }
+    .game-header p{color:var(--text2);font-weight:300;margin-top:.4rem;font-size:.9rem;}
+
+    .game-stats{
+      display:flex;gap:2rem;margin-bottom:1.5rem;flex-shrink:0;
+    }
+    .stat{
+      display:flex;flex-direction:column;align-items:center;gap:.25rem;
+      background:var(--surface);border:1px solid var(--border);border-radius:12px;
+      padding:.75rem 1.5rem;backdrop-filter:blur(20px);min-width:90px;
+    }
+    .stat-val{font-size:1.4rem;font-weight:600;font-variant-numeric:tabular-nums;}
+    .stat-label{font-size:.65rem;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;}
+
+    /* ── Minesweeper Grid ── */
+    .grid-wrap{
+      background:var(--surface);border:1px solid var(--border);border-radius:16px;
+      padding:12px;backdrop-filter:blur(30px);flex-shrink:0;
+    }
+    .grid{
+      display:grid;gap:3px;
+    }
+    .cell{
+      width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+      font-size:.95rem;font-weight:600;cursor:pointer;user-select:none;
+      transition:all .15s ease;position:relative;
+      background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.04);
+    }
+    .cell:hover:not(.revealed):not(.flagged-cell){
+      background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.08);
+    }
+    .cell:active:not(.revealed){transform:scale(.92);}
+    .cell.revealed{
+      background:rgba(255,255,255,0.02);border-color:rgba(255,255,255,0.02);
+      cursor:default;animation:revealPop .25s ease;
+    }
+    @keyframes revealPop{0%{transform:scale(.8);opacity:0}100%{transform:scale(1);opacity:1}}
+    .cell.flagged-cell{background:rgba(255,45,85,0.08);border-color:rgba(255,45,85,0.15);}
+    .cell.mine-hit{background:rgba(255,45,85,0.15)!important;border-color:rgba(255,45,85,0.3)!important;}
+    .cell.mine-revealed{background:rgba(255,45,85,0.06);border-color:rgba(255,45,85,0.1);}
+
+    .cell .num{font-variant-numeric:tabular-nums;}
+    .n1{color:#ff9db5;} .n2{color:#c084fc;} .n3{color:#fb7185;} .n4{color:#a78bfa;}
+    .n5{color:#f472b6;} .n6{color:#e879f9;} .n7{color:#f9a8d4;} .n8{color:#c4b5fd;}
+
+    .cell .heart-mine{font-size:1.2rem;filter:drop-shadow(0 0 6px rgba(255,45,85,0.5));}
+    .cell .flag{font-size:1rem;}
+
+    .game-hint{color:var(--text3);font-size:.75rem;margin-top:1rem;text-align:center;flex-shrink:0;}
+
+    .game-over-overlay{
+      position:fixed;inset:0;z-index:150;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;
+      background:rgba(0,0,0,0.7);backdrop-filter:blur(12px);
+      opacity:0;pointer-events:none;transition:opacity .5s ease;
+    }
+    .game-over-overlay.active{opacity:1;pointer-events:all;}
+    .game-over-overlay h2{
+      font-family:'Playfair Display',serif;font-size:2.5rem;font-weight:700;margin-bottom:.5rem;
+    }
+    .game-over-overlay p{color:var(--text2);font-weight:300;margin-bottom:1.5rem;font-size:1rem;}
+
+    /* ── Gift Screen ── */
+    .gift-emoji{font-size:5rem;margin-bottom:1.5rem;animation:giftBounce 2s ease-in-out infinite;}
+    @keyframes giftBounce{0%,100%{transform:translateY(0) rotate(0deg)}25%{transform:translateY(-10px) rotate(-3deg)}75%{transform:translateY(-5px) rotate(3deg)}}
+    .gift-title{
+      font-family:'Playfair Display',serif;font-weight:700;font-size:clamp(2rem,5vw,3.5rem);
+      letter-spacing:-0.02em;text-align:center;line-height:1.2;
+      background:linear-gradient(135deg,#ff2d55,#ff6b8a,#c084fc,#ff2d55);background-size:300% auto;
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+      animation:shimmer 4s linear infinite;
+    }
+    .gift-message{
+      font-size:clamp(1rem,2.5vw,1.2rem);font-weight:300;color:var(--text2);
+      margin-top:1.25rem;line-height:1.9;text-align:center;max-width:520px;
+    }
+    .gift-message strong{color:var(--text);font-weight:500;}
+
+    @media(max-width:600px){
+      .cell{width:36px;height:36px;font-size:.8rem;border-radius:6px;}
+      .cell .heart-mine{font-size:1rem;}
+      .grid-wrap{padding:8px;}
+      .grid{gap:2px;}
+      .screen{padding:1rem;}
+    }
+  </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+<div class="noise"></div><div class="vignette"></div>
+<canvas id="particles"></canvas><canvas id="confetti"></canvas>
+
+<!-- ═══ SCREEN 1: Question ═══ -->
+<div class="screen visible" id="s1">
+  <div class="heart-icon"><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+  <h1 class="hero-title">Would you be my Valentine?</h1>
+  <p class="tagline">I have something important to ask you.</p>
+  <div class="btn-group">
+    <button class="btn btn-primary" id="yesBtn">Yes</button>
+    <button class="btn btn-secondary" id="noBtn">No</button>
+  </div>
+</div>
+
+<!-- ═══ SCREEN 2: Success ═══ -->
+<div class="screen hidden" id="s2">
+  <div class="success-heart"><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+  <h1 class="success-title">I knew it.</h1>
+  <p class="success-sub">I have a little gift for you...</p>
+  <div class="btn-group">
+    <button class="btn btn-primary" id="giftBtn">Open my gift</button>
+  </div>
+</div>
+
+<!-- ═══ SCREEN 3: Game ═══ -->
+<div class="screen hidden screen-game" id="s3">
+  <div class="game-header">
+    <h2>Sweetheart Sweeper</h2>
+    <p>Find all the safe squares — but don't break any hearts.</p>
+  </div>
+  <div class="game-stats">
+    <div class="stat"><span class="stat-val" id="heartCount">💔 10</span><span class="stat-label">Hearts</span></div>
+    <div class="stat"><span class="stat-val" id="timerVal">0:00</span><span class="stat-label">Time</span></div>
+    <div class="stat"><span class="stat-val" id="flagCount">🚩 0</span><span class="stat-label">Flagged</span></div>
+  </div>
+  <div class="grid-wrap"><div class="grid" id="grid"></div></div>
+  <p class="game-hint">Left click to reveal &middot; Right click to flag a heart &middot; Clear all safe squares to win</p>
+</div>
+
+<!-- ═══ SCREEN 4: Gift Reveal ═══ -->
+<div class="screen hidden" id="s4">
+  <div class="gift-emoji">🎁</div>
+  <h1 class="gift-title">You won, baby!</h1>
+  <p class="gift-message">
+    You cleared every square — just like you cleared every doubt in my heart.<br><br>
+    <strong>My gift to you is me — all of me, forever.</strong><br><br>
+    Thank you for being the most amazing person I know.<br>
+    Happy Valentine's Day. I love you. ❤️
+  </p>
+</div>
+
+<!-- Game Over Overlay -->
+<div class="game-over-overlay" id="gameOver">
+  <h2>💔</h2>
+  <p>Oops — you hit a heart! Try again?</p>
+  <button class="btn btn-primary" id="retryBtn">Try again</button>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+//  Screen Transitions
+// ══════════════════════════════════════════════════
+function show(id, delay = 100) {
+  document.querySelectorAll('.screen').forEach(s => { s.classList.remove('visible'); s.classList.add('hidden'); });
+  setTimeout(() => { const el = document.getElementById(id); el.classList.remove('hidden'); el.classList.add('visible'); el.scrollTop = 0; }, delay);
+}
+
+// ══════════════════════════════════════════════════
+//  Yes / No — Runaway button
+// ══════════════════════════════════════════════════
+const noBtn = document.getElementById('noBtn'), yesBtn = document.getElementById('yesBtn');
+let esc = 0, isRun = false, cooldown = false;
+const msgs = ['No','Are you sure?','Really?','Think again...','Not happening','Try harder','Nope',
+  "Can't catch me",'Almost...','Just say yes','Please?',"I'll keep running","You can't win",'Give up?'];
+
+// Track mouse position globally so we can avoid it
+let mouseX = 0, mouseY = 0;
+document.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+
+const popAnims = [
+  'popBarrelRoll','popBackflip','popCartwheel','popSquash','popJello','popCorkscrew',
+  'popRubberBand','popFlatSpin','popYeet','popDrain','popFlipStretch','popDizzy'
+];
+let lastAnim = -1;
+
+function flee(e) {
+  e.preventDefault();
+  if (cooldown) return;
+  cooldown = true; esc++;
+
+  if (!isRun) { isRun = true; noBtn.classList.add('runaway'); }
+
+  const bw = noBtn.offsetWidth, bh = noBtn.offsetHeight;
+
+  // Safe zone
+  const margin = 50;
+  const minX = margin, maxX = innerWidth - bw - margin;
+  const minY = margin, maxY = innerHeight - bh - margin;
+
+  // Find a position far from BOTH the mouse AND the Yes button
+  const yr = yesBtn.getBoundingClientRect();
+  let bestX = 0, bestY = 0, bestDist = 0;
+
+  for (let i = 0; i < 60; i++) {
+    const cx = Math.random() * (maxX - minX) + minX;
+    const cy = Math.random() * (maxY - minY) + minY;
+
+    // Distance from mouse cursor
+    const dMouse = Math.hypot(cx + bw/2 - mouseX, cy + bh/2 - mouseY);
+
+    // Skip if overlapping Yes button
+    if (cx < yr.right + 30 && cx + bw > yr.left - 30 &&
+        cy < yr.bottom + 30 && cy + bh > yr.top - 30) continue;
+
+    // Pick the position farthest from cursor
+    if (dMouse > bestDist) { bestDist = dMouse; bestX = cx; bestY = cy; }
+  }
+
+  // Pick a random pop-in animation (never same twice in a row)
+  let idx;
+  do { idx = Math.floor(Math.random() * popAnims.length); } while (idx === lastAnim);
+  lastAnim = idx;
+
+  // Speed up slightly each time (more frantic)
+  const speed = Math.max(500, 750 - esc * 12);
+
+  // Instantly snap to new position and play pop-in animation
+  noBtn.style.animation = 'none';
+  noBtn.offsetHeight; // force reflow
+  noBtn.style.left = bestX + 'px';
+  noBtn.style.top = bestY + 'px';
+  noBtn.style.animation = `${popAnims[idx]} ${speed}ms cubic-bezier(0.16, 1, 0.3, 1) forwards`;
+
+  // Update text
+  noBtn.textContent = msgs[Math.min(esc, msgs.length - 1)];
+
+  // Grow the Yes button slightly
+  yesBtn.style.transform = `scale(${Math.min(1.25, 1 + esc * 0.02)})`;
+
+  // Cooldown: prevent re-triggering even if mouse is over new position
+  setTimeout(() => { cooldown = false; }, speed + 300);
+}
+
+noBtn.addEventListener('mouseenter', flee);
+noBtn.addEventListener('touchstart', flee, {passive:false});
+noBtn.addEventListener('focus', flee);
+
+yesBtn.addEventListener('click',()=>{
+  noBtn.style.display='none';
+  launchConfetti();
+  show('s2');
+});
+
+document.getElementById('giftBtn').addEventListener('click',()=>{
+  show('s3');
+  initGame();
+});
+
+document.getElementById('retryBtn').addEventListener('click',()=>{
+  document.getElementById('gameOver').classList.remove('active');
+  initGame();
+});
+
+// ══════════════════════════════════════════════════
+//  MINESWEEPER — Sweetheart Sweeper
+// ══════════════════════════════════════════════════
+const ROWS = 9, COLS = 9, MINES = 5;
+let board, revealed, flagged, gameActive, firstClick, timer, seconds;
+
+function initGame() {
+  clearInterval(timer); seconds = 0; updateTimer();
+  gameActive = true; firstClick = true;
+  board = Array.from({length:ROWS},()=>Array(COLS).fill(0));
+  revealed = Array.from({length:ROWS},()=>Array(COLS).fill(false));
+  flagged = Array.from({length:ROWS},()=>Array(COLS).fill(false));
+  renderGrid();
+  updateStats();
+}
+
+function placeMines(safeR, safeC) {
+  let placed = 0;
+  while (placed < MINES) {
+    const r = Math.floor(Math.random()*ROWS), c = Math.floor(Math.random()*COLS);
+    if (board[r][c]===-1) continue;
+    if (Math.abs(r-safeR)<=1 && Math.abs(c-safeC)<=1) continue;
+    board[r][c] = -1; placed++;
+  }
+  // Calc numbers
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+    if (board[r][c]===-1) continue;
+    let cnt=0;
+    for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++) {
+      const nr=r+dr,nc=c+dc;
+      if (nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&board[nr][nc]===-1) cnt++;
+    }
+    board[r][c]=cnt;
+  }
+}
+
+function renderGrid() {
+  const g = document.getElementById('grid');
+  g.innerHTML = '';
+  g.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.dataset.r = r; cell.dataset.c = c;
+    cell.addEventListener('click', () => revealCell(r,c));
+    cell.addEventListener('contextmenu', e => { e.preventDefault(); toggleFlag(r,c); });
+    // Long press for mobile flag
+    let lt;
+    cell.addEventListener('touchstart', e => { lt = setTimeout(()=>{ e.preventDefault(); toggleFlag(r,c); }, 400); }, {passive:false});
+    cell.addEventListener('touchend', () => clearTimeout(lt));
+    cell.addEventListener('touchmove', () => clearTimeout(lt));
+    g.appendChild(cell);
+  }
+}
+
+function getCell(r,c) {
+  return document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+}
+
+function revealCell(r,c) {
+  if (!gameActive || revealed[r][c] || flagged[r][c]) return;
+  if (firstClick) {
+    firstClick = false;
+    placeMines(r,c);
+    timer = setInterval(()=>{ seconds++; updateTimer(); }, 1000);
+  }
+  revealed[r][c] = true;
+  const cell = getCell(r,c);
+
+  if (board[r][c] === -1) {
+    // Hit a mine!
+    cell.classList.add('revealed','mine-hit');
+    cell.innerHTML = '<span class="heart-mine">💔</span>';
+    gameOver();
+    return;
+  }
+
+  cell.classList.add('revealed');
+  if (board[r][c] > 0) {
+    cell.innerHTML = `<span class="num n${board[r][c]}">${board[r][c]}</span>`;
+  }
+
+  // Flood fill for 0s
+  if (board[r][c] === 0) {
+    for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++) {
+      const nr=r+dr,nc=c+dc;
+      if (nr>=0&&nr<ROWS&&nc>=0&&nc<COLS) revealCell(nr,nc);
+    }
+  }
+
+  checkWin();
+}
+
+function toggleFlag(r,c) {
+  if (!gameActive || revealed[r][c]) return;
+  flagged[r][c] = !flagged[r][c];
+  const cell = getCell(r,c);
+  if (flagged[r][c]) {
+    cell.classList.add('flagged-cell');
+    cell.innerHTML = '<span class="flag">❤️</span>';
+  } else {
+    cell.classList.remove('flagged-cell');
+    cell.innerHTML = '';
+  }
+  updateStats();
+}
+
+function updateStats() {
+  const fc = flagged.flat().filter(Boolean).length;
+  document.getElementById('heartCount').textContent = `💔 ${MINES}`;
+  document.getElementById('flagCount').textContent = `🚩 ${fc}`;
+}
+
+function updateTimer() {
+  const m = Math.floor(seconds/60), s = seconds%60;
+  document.getElementById('timerVal').textContent = `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function gameOver() {
+  gameActive = false; clearInterval(timer);
+  // Reveal all mines
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+    if (board[r][c]===-1 && !revealed[r][c]) {
+      const cell = getCell(r,c);
+      cell.classList.add('revealed','mine-revealed');
+      cell.innerHTML = '<span class="heart-mine">💔</span>';
+    }
+  }
+  setTimeout(()=> document.getElementById('gameOver').classList.add('active'), 600);
+}
+
+function checkWin() {
+  let safeTotal = ROWS*COLS - MINES;
+  let revealedSafe = 0;
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+    if (revealed[r][c] && board[r][c] !== -1) revealedSafe++;
+  }
+  if (revealedSafe === safeTotal) {
+    gameActive = false; clearInterval(timer);
+    // Auto-flag remaining mines
+    for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+      if (board[r][c]===-1) {
+        const cell = getCell(r,c);
+        cell.classList.add('flagged-cell');
+        cell.innerHTML = '<span class="flag">❤️</span>';
+      }
+    }
+    setTimeout(()=>{
+      launchConfetti();
+      show('s4');
+    }, 800);
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  Particles
+// ══════════════════════════════════════════════════
+const pC=document.getElementById('particles'),pX=pC.getContext('2d');let pts=[];
+function rP(){pC.width=innerWidth;pC.height=innerHeight;}rP();addEventListener('resize',rP);
+class Pt{
+  constructor(){this.reset();}
+  reset(){this.x=Math.random()*pC.width;this.y=Math.random()*pC.height;this.s=Math.random()*1.5+.5;this.vx=(Math.random()-.5)*.3;this.vy=(Math.random()-.5)*.3;this.o=Math.random()*.25+.05;this.l=Math.random()*400+200;this.ml=this.l;}
+  update(){this.x+=this.vx;this.y+=this.vy;this.l--;if(this.l<=0||this.x<0||this.x>pC.width||this.y<0||this.y>pC.height)this.reset();}
+  draw(){const f=Math.min(1,this.l/(this.ml*.2),(this.ml-this.l)/(this.ml*.2));pX.globalAlpha=this.o*f;pX.fillStyle='#ff2d55';pX.beginPath();pX.arc(this.x,this.y,this.s,0,Math.PI*2);pX.fill();}
+}
+for(let i=0;i<50;i++)pts.push(new Pt());
+(function aP(){pX.clearRect(0,0,pC.width,pC.height);pts.forEach(p=>{p.update();p.draw()});pX.globalAlpha=1;requestAnimationFrame(aP)})();
+
+// ══════════════════════════════════════════════════
+//  Confetti
+// ══════════════════════════════════════════════════
+const cC=document.getElementById('confetti'),cX=cC.getContext('2d');let cfs=[],cR=false;
+function rCc(){cC.width=innerWidth;cC.height=innerHeight;}rCc();addEventListener('resize',rCc);
+const cCols=['#ff2d55','#ff6b8a','#ff9db5','#fff','#ffd4de','#d63384','#c084fc','#ffc8d7'];
+class Cf{
+  constructor(){this.x=Math.random()*cC.width;this.y=-20;this.w=Math.random()*8+4;this.h=Math.random()*6+3;this.c=cCols[Math.floor(Math.random()*cCols.length)];this.vx=(Math.random()-.5)*4;this.vy=Math.random()*3+2;this.r=Math.random()*360;this.rs=(Math.random()-.5)*12;this.o=1;this.g=.04;this.d=.98;this.wb=Math.random()*10;this.ws=Math.random()*.1+.03;}
+  update(){this.vy+=this.g;this.vx*=this.d;this.x+=this.vx+Math.sin(this.wb)*.5;this.y+=this.vy;this.r+=this.rs;this.wb+=this.ws;if(this.y>cC.height+40)this.o=0;}
+  draw(){if(this.o<=0)return;cX.save();cX.translate(this.x,this.y);cX.rotate(this.r*Math.PI/180);cX.globalAlpha=this.o;cX.fillStyle=this.c;cX.fillRect(-this.w/2,-this.h/2,this.w,this.h);cX.restore();}
+}
+function launchConfetti(){
+  for(let i=0;i<180;i++)setTimeout(()=>cfs.push(new Cf()),i*12);
+  setTimeout(()=>{for(let i=0;i<100;i++)setTimeout(()=>cfs.push(new Cf()),i*18)},1000);
+  if(!cR){cR=true;(function aC(){cX.clearRect(0,0,cC.width,cC.height);cfs=cfs.filter(c=>c.o>0);cfs.forEach(c=>{c.update();c.draw()});cX.globalAlpha=1;if(cfs.length>0)requestAnimationFrame(aC);else cR=false})();}
+}
+</script>
+</body>
+</html>
