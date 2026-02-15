@@ -32,10 +32,31 @@
     @keyframes oF2{0%,100%{transform:translate(0,0)}33%{transform:translate(-60px,-30px)}66%{transform:translate(40px,-50px)}}
     @keyframes oF3{0%,100%{transform:translate(0,0)}50%{transform:translate(-100px,-60px)}}
 
-    .noise{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0.025;
+    /* ── Floating balloons ── */
+    .balloons-layer{position:fixed;inset:0;z-index:2;pointer-events:none;overflow:hidden;}
+    .balloon{
+      position:absolute;bottom:-220px;
+      width:var(--size);
+      opacity:var(--opacity);
+      animation:balloonFloat var(--dur) var(--delay) linear forwards;
+      filter:drop-shadow(0 8px 24px rgba(255,20,60,0.25));
+      will-change:transform;
+    }
+    .balloon img{width:100%;height:auto;display:block;}
+    @keyframes balloonFloat{
+      0%{transform:translateY(0) translateX(0) rotate(0deg);opacity:0;}
+      5%{opacity:var(--opacity);}
+      25%{transform:translateY(-30vh) translateX(var(--sway)) rotate(var(--rot));}
+      50%{transform:translateY(-60vh) translateX(calc(var(--sway) * -0.6)) rotate(calc(var(--rot) * -0.5));}
+      75%{transform:translateY(-90vh) translateX(var(--sway2)) rotate(var(--rot));}
+      95%{opacity:var(--opacity);}
+      100%{transform:translateY(-130vh) translateX(calc(var(--sway) * 0.3)) rotate(calc(var(--rot) * -1));opacity:0;}
+    }
+
+    .noise{position:fixed;inset:0;z-index:3;pointer-events:none;opacity:0.025;
       background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
       background-repeat:repeat;background-size:256px;}
-    .vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
+    .vignette{position:fixed;inset:0;z-index:3;pointer-events:none;
       background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,0.5) 100%);}
 
     /* ── Screens ── */
@@ -202,6 +223,7 @@
 <body>
 
 <div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+<div class="balloons-layer" id="balloons"></div>
 <div class="noise"></div><div class="vignette"></div>
 <canvas id="particles"></canvas><canvas id="confetti"></canvas>
 
@@ -518,6 +540,45 @@ function checkWin() {
     }, 800);
   }
 }
+
+// ══════════════════════════════════════════════════
+//  Floating Balloons
+// ══════════════════════════════════════════════════
+const balloonsLayer = document.getElementById('balloons');
+
+function spawnBalloon() {
+  const el = document.createElement('div');
+  el.className = 'balloon';
+
+  const size = Math.random() * 60 + 50;           // 50–110px
+  const x = Math.random() * 100;                   // random horizontal %
+  const dur = Math.random() * 10 + 12;             // 12–22s float time
+  const delay = Math.random() * 2;                 // stagger
+  const opacity = Math.random() * 0.35 + 0.15;     // 0.15–0.5
+  const sway = (Math.random() * 60 - 30);          // sway left/right px
+  const sway2 = (Math.random() * 40 - 20);
+  const rot = (Math.random() * 16 - 8);            // subtle tilt
+
+  el.style.setProperty('--size', size + 'px');
+  el.style.setProperty('--dur', dur + 's');
+  el.style.setProperty('--delay', delay + 's');
+  el.style.setProperty('--opacity', opacity);
+  el.style.setProperty('--sway', sway + 'px');
+  el.style.setProperty('--sway2', sway2 + 'px');
+  el.style.setProperty('--rot', rot + 'deg');
+  el.style.left = x + '%';
+
+  el.innerHTML = '<img src="balloon.png" alt="">';
+  balloonsLayer.appendChild(el);
+
+  // Clean up after animation
+  setTimeout(() => el.remove(), (dur + delay) * 1000 + 500);
+}
+
+// Spawn initial batch
+for (let i = 0; i < 8; i++) setTimeout(spawnBalloon, i * 600);
+// Keep spawning
+setInterval(spawnBalloon, 2500);
 
 // ══════════════════════════════════════════════════
 //  Particles
